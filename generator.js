@@ -8,15 +8,19 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
 
   files.forEach(function (file) {
     if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
-    } else {
-      let path_ = path.join(dirPath, "/", file)
-      let data = {
-        fileName: file,
-        path: path_,
-        parent: dirPath
+      if(file!=="component" && file!=="components"){
+        arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
       }
-      arrayOfFiles.push(data)
+    } else {
+      if( file[0]!=="." ){
+        let path_ = path.join(dirPath, "/", file)
+        let data = {
+          fileName: file,
+          path: path_,
+          parent: dirPath
+        }
+        arrayOfFiles.push(data)
+      }
     }
   })
 
@@ -52,10 +56,10 @@ result.forEach(function (val, id) {
   params.forEach(function(prm){
     cekstrip = !!~prm.indexOf("-", 0)
     if(cekstrip) prm = prm.replace(/-/, "") + "?"
-    route += "/{" + prm + "}"
+    route += "/:" + prm
   })
 
-  result[id] = {moduleName: modname, routePath: route, importPath: importpath }
+  result[id] = {componentName: modname, routePath: route, importPath: importpath }
 })
 
 console.log("\nGenerated Routes\n")
