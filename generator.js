@@ -1,3 +1,14 @@
+/**
+ * DirStructure to React Route
+ * a generator that will generate react routes
+ * based on how you structure your directory
+ * 
+ * note: still not ready for production
+ * 
+ * writer: Isa Ako
+ * https://github.com/isa-ako/dirstructure-to-react-route
+ */
+
 const fs = require("fs")
 const path = require("path")
 
@@ -8,7 +19,8 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
 
   files.forEach(function (file) {
     if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      if (file !== "component" && file !== "components") {
+      if (file !== "_error" && file !== "component" && file !== "components") {
+        // will crawl every directory except component and _error
         arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
       }
     } else {
@@ -65,3 +77,43 @@ result.forEach(function (val, id) {
 
 console.log("\nGenerated Routes\n")
 console.log(result)
+
+// write GeneratedRoutes.js
+let texts =
+`
+import React from 'react'
+import { Route, BrowserRouter, Switch } from 'react-router-dom'
+`
+result.forEach(function(val){
+  texts += `import ${val.componentName} from '${val.importPath}'` + "\n"
+})
+
+texts += 
+`
+export default function GeneratedRoutes(props) {
+  return (
+      <BrowserRouter basename={props.basepath}>
+        <Switch>
+` + "\n"
+
+result.forEach(function(val){
+  texts += `<Route exact path="${val.routePath}" component={${val.componentName}} />` + "\n"
+})
+
+texts += 
+`
+          {/* if path not found */}
+        </Switch>
+      </BrowserRouter>
+  )
+}
+`
+
+// write to a new file
+fs.writeFile('GeneratedRoutes.js', texts, (err) => {
+    // throws an error, you could also catch it here
+    if (err) throw err;
+
+    // success case, the file was saved
+    console.log('Routes Generated!');
+});
