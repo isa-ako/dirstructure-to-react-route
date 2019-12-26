@@ -19,12 +19,18 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
 
   files.forEach(function (file) {
     if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      if (file !== "_error" && file !== "component" && file !== "components") {
+      if (file !== "_error" && file !== "component" && file !== "components" && file[0] !== ".") {
         // will crawl every directory except component and _error
         arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
       }
     } else {
-      if (file[0] !== ".") {
+      if (
+        // only process file with :
+        file[0] !== "." && // not starting with .
+        file.split('.').length == 2 && // only have one .
+        !~file.indexOf("_.") && // not contain "_."
+        !~file.indexOf("-.") // not contain "-."
+        ) {
         let path_ = path.join(dirPath, "/", file)
         let data = {
           fileName: file,
@@ -64,7 +70,8 @@ result.forEach(function (val, id) {
   parent_split = val.parent.split('/')
   if (file == "index") file = parent_split[(parent_split.length - 1)]
 
-  modname = file[0].toUpperCase() + file.slice(1)
+  modname = file[0].toUpperCase() + file.slice(1) 
+    + "_" + Math.random().toString(36).substring(7)
 
   params.forEach(function (prm) {
     cekstrip = !!~prm.indexOf("-", 0)
@@ -80,28 +87,28 @@ console.log(result)
 
 // write GeneratedRoutes.js
 let texts =
-`
+  `
 import React from 'react'
 import { Route, BrowserRouter, Switch } from 'react-router-dom'
 `
-result.forEach(function(val){
+result.forEach(function (val) {
   texts += `import ${val.componentName} from '${val.importPath}'` + "\n"
 })
 
-texts += 
-`
+texts +=
+  `
 export default function GeneratedRoutes(props) {
   return (
       <BrowserRouter basename={props.basepath}>
         <Switch>
 ` + "\n"
 
-result.forEach(function(val){
+result.forEach(function (val) {
   texts += `<Route exact path="${val.routePath}" component={${val.componentName}} />` + "\n"
 })
 
-texts += 
-`
+texts +=
+  `
           {/* if path not found */}
         </Switch>
       </BrowserRouter>
@@ -111,9 +118,9 @@ texts +=
 
 // write to a new file
 fs.writeFile('GeneratedRoutes.js', texts, (err) => {
-    // throws an error, you could also catch it here
-    if (err) throw err;
+  // throws an error, you could also catch it here
+  if (err) throw err;
 
-    // success case, the file was saved
-    console.log('Routes Generated!');
+  // success case, the file was saved
+  console.log('Routes Generated!');
 });
