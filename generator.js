@@ -8,11 +8,11 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
 
   files.forEach(function (file) {
     if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      if(file!=="component" && file!=="components"){
+      if (file !== "component" && file !== "components") {
         arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
       }
     } else {
-      if( file[0]!=="." ){
+      if (file[0] !== ".") {
         let path_ = path.join(dirPath, "/", file)
         let data = {
           fileName: file,
@@ -38,28 +38,29 @@ result.forEach(function (val, id) {
   route = route.replace(dirParent, "")
 
   dirparent_split = dirParent.split('/')
-  importpath = dirparent_split[ (dirparent_split.length-1) ] + route
+  importpath = dirparent_split[(dirparent_split.length - 1)] + route
 
   file_ = val.fileName.replace(/.js/, "")
+  file_ = file_.replace(/__/, "_-")
   let [file, ...params] = file_.split('_')
 
   crop = file_.length
-  route = route.substr(0, (route.length-crop))
+  route = route.substr(0, (route.length - crop))
   route += file
   route = route.replace(/index/, "")
 
   parent_split = val.parent.split('/')
-  if(file=="index") file = parent_split[ (parent_split.length-1) ]
+  if (file == "index") file = parent_split[(parent_split.length - 1)]
 
   modname = file[0].toUpperCase() + file.slice(1)
 
-  params.forEach(function(prm){
+  params.forEach(function (prm) {
     cekstrip = !!~prm.indexOf("-", 0)
-    if(cekstrip) prm = prm.replace(/-/, "") + "?"
+    if (cekstrip) prm = prm.replace(/-/, "") + "?"
     route += "/:" + prm
   })
 
-  result[id] = {componentName: modname, routePath: route, importPath: importpath }
+  result[id] = { componentName: modname, routePath: route, importPath: importpath }
 })
 
 console.log("\nGenerated Routes\n")
