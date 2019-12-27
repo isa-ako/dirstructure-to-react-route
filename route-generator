@@ -12,6 +12,7 @@
 const fs = require("fs")
 const path = require("path")
 
+// ----- function to crawl directories
 const getAllFiles = function (dirPath, arrayOfFiles) {
   files = fs.readdirSync(dirPath)
 
@@ -19,7 +20,14 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
 
   files.forEach(function (file) {
     if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-      if (file !== "_error" && file !== "component" && file !== "components" && file[0] !== ".") {
+      if (
+        file !== "_error" &&
+        file !== "_component" &&
+        file !== "_components" &&
+        file !== "component" &&
+        file !== "components" &&
+        file[0] !== "."
+      ) {
         // will crawl every directory except component and _error
         arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
       }
@@ -30,7 +38,7 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
         file.split('.').length == 2 && // only have one .
         !~file.indexOf("_.") && // not contain "_."
         !~file.indexOf("-.") // not contain "-."
-        ) {
+      ) {
         let path_ = path.join(dirPath, "/", file)
         let data = {
           fileName: file,
@@ -45,82 +53,147 @@ const getAllFiles = function (dirPath, arrayOfFiles) {
   return arrayOfFiles
 }
 
-const dirParent = process.argv[2];
-const result = getAllFiles("./" + dirParent)
-
-console.log("\nDirectory Structure\n")
-console.log(result)
-
-result.forEach(function (val, id) {
-  route = val.path.replace(/.js/, "")
+// ----- function to generate object needed for routes file
+const generateRoute = (val, dirParent) => {
+  // clear route var from extension and root parent
+  route = val.path.replace(/.jsx/, "")
+  route = route.replace(/.js/, "")
   route = route.replace(dirParent, "")
 
+  // create importpath
   dirparent_split = dirParent.split('/')
   importpath = dirparent_split[(dirparent_split.length - 1)] + route
 
-  file_ = val.fileName.replace(/.js/, "")
-  file_ = file_.replace(/__/, "_-")
+  // split params
+  file_ = val.fileName.replace(/.jsx/, "")
+  file_ = file_.replace(/.js/, "")
+  file_ = file_.split("__").join("_-")
   let [file, ...params] = file_.split('_')
 
+  // start creating route path
   crop = file_.length
   route = route.substr(0, (route.length - crop))
   route += file
   route = route.replace(/index/, "")
 
+  // using directory name as component name if it's index
+  is_exact = 'exact '
+  ret_parent = val.parent
   parent_split = val.parent.split('/')
-  if (file == "index") file = parent_split[(parent_split.length - 1)]
+  if (file == "index") {
+    file = parent_split[(parent_split.length - 1)]
+    ret_parent = val.parent.replace("/" + file, "")
+    is_exact = ''
+  }
 
-  modname = file[0].toUpperCase() + file.slice(1) 
-    + "_" + Math.random().toString(36).substring(7)
+  // create component name
+  modname = file[0].toUpperCase() + file.slice(1)
+  if(process.argv[3]!="-r")
+    modname += "_" + Math.random().toString(36).substring(7)
 
+  // converting _ or __ into parameter
   params.forEach(function (prm) {
     cekstrip = !!~prm.indexOf("-", 0)
     if (cekstrip) prm = prm.replace(/-/, "") + "?"
     route += "/:" + prm
   })
 
-  result[id] = { componentName: modname, routePath: route, importPath: importpath }
-})
+  // clear last slash character
+  ceklastslash = route[(route.length - 1)] == "/"
+  if (ceklastslash && route.length>1) 
+    route = route.substr(0, (route.length - 1))
 
-console.log("\nGenerated Routes\n")
-console.log(result)
+  return { 
+    componentName: modname, 
+    routePath: route, 
+    importPath: importpath, 
+    parent: ret_parent.replace(/.\//, ""), 
+    is_exact:  is_exact
+  }
+}
 
-// write GeneratedRoutes.js
-let texts =
-  `
+// ----- function to create routes file
+const createFile = (result, putTo) => {
+  let texts =
+    `
 import React from 'react'
-import { Route, BrowserRouter, Switch } from 'react-router-dom'
+import { Route, Switch } from 'react-router-dom'
 `
-result.forEach(function (val) {
-  texts += `import ${val.componentName} from '${val.importPath}'` + "\n"
-})
+  result.forEach(function (val) {
+    texts += `import ${val.componentName} from '${val.importPath}'` + "\n"
+  })
 
-texts +=
-  `
-export default function GeneratedRoutes(props) {
+  texts +=
+    `
+export default function DefaultRoutes(props) {
   return (
-      <BrowserRouter basename={props.basepath}>
         <Switch>
 ` + "\n"
 
-result.forEach(function (val) {
-  texts += `<Route exact path="${val.routePath}" component={${val.componentName}} />` + "\n"
-})
+  result.forEach(function (val) {
+    texts += `<Route ${process.argv[3]=="-r" ? val.is_exact : "exact "}path="${val.routePath}" component={${val.componentName}} />` + "\n"
+  })
 
-texts +=
-  `
+  texts +=
+    `
           {/* if path not found */}
         </Switch>
-      </BrowserRouter>
   )
 }
 `
 
-// write to a new file
-fs.writeFile('GeneratedRoutes.js', texts, (err) => {
-  // throws an error, you could also catch it here
-  if (err) throw err;
+  // write to a new file
+  fs.writeFile(putTo + 'routes.default.js', texts, (err) => {
+    // throws an error, you could also catch it here
+    if (err) throw err;
 
-  // success case, the file was saved
-  console.log('Routes Generated!');
-});
+    // success case, the file was saved
+    console.log('Routes Generated!');
+  });
+}
+
+// MAIN START HERE
+const dirParent = process.argv[2];
+const result = getAllFiles("./" + dirParent)
+
+// console.log("\nDirectory Structure\n")
+// console.log(result)
+
+file_loop = []
+results = []
+var already_have_parent
+
+result.forEach(function (val, id) {
+  results[id] = generateRoute(val, dirParent)
+  already_have_parent = -1
+
+  file_loop.forEach(function (vals, idd) {
+    if (vals.par == results[id].parent) {
+      already_have_parent = idd;
+    }
+  })
+
+  if (already_have_parent >= 0) {
+    var idx = already_have_parent
+  }
+  else {
+    file_loop.push({ par: results[id].parent, insides: [] })
+    var idx = file_loop.length - 1
+  }
+
+  file_loop[idx].insides.push(results[id])
+})
+
+// console.log("\nGenerated Routes\n")
+// console.log(results)
+
+// write routes.default.js
+
+if (process.argv[3] === undefined) {
+  createFile(results, "")
+} else if (process.argv[3] == "-r") {
+  // console.log(file_loop)
+  file_loop.forEach((val, id) => {
+    createFile(val.insides, val.par + "/")
+  })
+} else { }
